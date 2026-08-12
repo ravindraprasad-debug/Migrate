@@ -1,0 +1,110 @@
+{
+  "audit_table": "gold_governance.reconciliation_audit_log",
+  "summary_report_table": "gold_governance.reconciliation_summary_report",
+  "default_tolerance": 0.0,
+  "tables": [
+    {
+      "table_name": "customers",
+      "layer": "Bronze",
+      "priority": "Critical",
+      "approx_volume": "80M",
+      "source_path_or_name": "azure_bronze.customers",
+      "target_path_or_name": "aws_bronze.customers",
+      "pk": ["customer_id"],
+      "partition_columns": ["region", "ingestion_date"],
+      "compare": [
+        "schema",
+        "count",
+        "null_duplicate",
+        "primary_key",
+        "aggregate",
+        "hash",
+        "row_diff",
+        "business_rules",
+        "partition",
+        "delta_metadata",
+        "incremental",
+        "error_table"
+      ],
+      "critical_columns": ["customer_id", "email", "registration_date"],
+      "aggregate_columns": ["account_balance", "loyalty_points"],
+      "tolerance": 0.0,
+      "business_rules": [
+        "account_balance >= 0",
+        "status IN ('ACTIVE', 'INACTIVE', 'SUSPENDED')",
+        "age >= 18",
+        "email IS NOT NULL AND email LIKE '%@%.'"
+      ],
+      "error_table_source": "azure_bronze.customers_rejected",
+      "error_table_target": "aws_bronze.customers_rejected",
+      "watermark_column": "updated_at",
+      "incremental_lookback_days": 1
+    },
+    {
+      "table_name": "orders",
+      "layer": "Silver",
+      "priority": "Critical",
+      "approx_volume": "15M",
+      "source_path_or_name": "azure_silver.orders",
+      "target_path_or_name": "aws_silver.orders",
+      "pk": ["order_id"],
+      "partition_columns": ["order_date"],
+      "compare": [
+        "schema",
+        "count",
+        "null_duplicate",
+        "primary_key",
+        "aggregate",
+        "hash",
+        "row_diff",
+        "business_rules",
+        "partition",
+        "delta_metadata",
+        "incremental",
+        "error_table"
+      ],
+      "critical_columns": ["order_id", "customer_id", "order_date", "total_amount"],
+      "aggregate_columns": ["total_amount", "discount_amount", "tax_amount", "item_count"],
+      "tolerance": 0.001,
+      "business_rules": [
+        "total_amount >= 0",
+        "discount_amount >= 0",
+        "order_status IN ('OPEN', 'CLOSED', 'PENDING', 'CANCELLED', 'REFUNDED')"
+      ],
+      "error_table_source": "azure_silver.orders_rejected",
+      "error_table_target": "aws_silver.orders_rejected",
+      "watermark_column": "modified_timestamp",
+      "incremental_lookback_days": 3
+    },
+    {
+      "table_name": "transactions",
+      "layer": "Gold",
+      "priority": "High",
+      "approx_volume": "4M",
+      "source_path_or_name": "azure_gold.transactions",
+      "target_path_or_name": "aws_gold.transactions",
+      "pk": ["transaction_id"],
+      "partition_columns": ["transaction_year", "transaction_month"],
+      "compare": [
+        "schema",
+        "count",
+        "null_duplicate",
+        "primary_key",
+        "aggregate",
+        "hash",
+        "row_diff",
+        "business_rules",
+        "partition",
+        "delta_metadata"
+      ],
+      "critical_columns": ["transaction_id", "account_id", "transaction_timestamp", "amount"],
+      "aggregate_columns": ["amount", "fee_amount"],
+      "tolerance": 0.0,
+      "business_rules": [
+        "amount <> 0",
+        "fee_amount >= 0",
+        "currency_code IN ('USD', 'EUR', 'GBP', 'CAD', 'JPY')"
+      ]
+    }
+  ]
+}
